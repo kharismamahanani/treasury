@@ -49,6 +49,23 @@
       <span id="maturityBadgeNav" class="nav-badge" style="margin-left:auto;display:none;background:var(--red);color:#fff;font-size:10px;padding:1px 7px;border-radius:20px;font-weight:600"></span>
     </a>
 
+    <a class="nav-item" data-view="interest-recon" title="Rekonsiliasi Bunga" onclick="switchView('interest-recon',this)">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+      </svg>
+      <span class="nav-item-label">Rekonsiliasi Bunga</span>
+      <span class="nav-badge" id="interestOverdueBadge" style="display:none;background:var(--red);color:#fff"></span>
+    </a>
+
+    <a class="nav-item" data-view="recommendation" title="Rekomendasi Penempatan" onclick="switchView('recommendation',this)">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <circle cx="12" cy="16" r="1" fill="currentColor"/>
+      </svg>
+      <span class="nav-item-label">Rekomendasi Penempatan</span>
+    </a>
+
     <a class="nav-item" data-view="yield-claims" title="Penagihan Imbal Hasil" onclick="switchView('yield-claims',this)">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
       <span class="nav-item-label">Penagihan Imbal Hasil</span>

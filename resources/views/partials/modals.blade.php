@@ -263,6 +263,157 @@
 </div>
 @endif
 
+{{-- Modal: Input Bunga Aktual --}}
+@if(auth()->user()->canEdit())
+<div class="modal-overlay" id="modalInputBunga">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-title">Input Bunga Aktual</div>
+
+    {{-- Info produk (readonly) --}}
+    <div style="background:var(--navy);border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:13px">
+      <div style="color:var(--text-dim);font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Jadwal yang Dipilih</div>
+      <div id="ibBankName" style="font-weight:600;color:var(--cream)">—</div>
+      <div id="ibRekening" style="font-size:12px;color:var(--text-dim);margin-top:2px">—</div>
+      <div style="margin-top:8px;font-size:12px">
+        <span style="color:var(--text-dim)">Periode:</span>
+        <span id="ibPeriode" style="color:var(--cream);margin-left:6px">—</span>
+      </div>
+      <div style="font-size:12px">
+        <span style="color:var(--text-dim)">Bunga Seharusnya:</span>
+        <span id="ibExpected" style="color:var(--gold);font-weight:600;margin-left:6px">—</span>
+      </div>
+    </div>
+
+    <div class="form-grid">
+      <div class="field">
+        <label>Rate Efektif (% p.a.)</label>
+        <input type="number" id="ibRate" placeholder="Mis: 5.50" step="0.0001" min="0" max="100" oninput="previewBungaGap()">
+      </div>
+      <div class="field">
+        <label>Bunga Aktual</label>
+        <input type="number" id="ibActual" placeholder="Nominal bunga yang diterima" step="0.01" min="0" oninput="previewBungaGap()">
+      </div>
+      <div class="field col-2">
+        <label>Catatan</label>
+        <textarea id="ibNote" placeholder="Referensi rekening koran, catatan negosiasi..."></textarea>
+      </div>
+    </div>
+
+    {{-- Live preview --}}
+    <div id="ibPreviewBox" style="display:none;background:var(--navy);border-radius:10px;padding:14px;margin-top:4px;font-size:13px">
+      <div style="color:var(--text-dim);font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Preview Kalkulasi</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <div style="color:var(--text-dim);font-size:11px">Bunga Seharusnya</div>
+          <div id="ibPreviewExpected" style="font-weight:600">—</div>
+        </div>
+        <div>
+          <div style="color:var(--text-dim);font-size:11px">Bunga Aktual</div>
+          <div id="ibPreviewActual" style="font-weight:600">—</div>
+        </div>
+        <div>
+          <div style="color:var(--text-dim);font-size:11px">Selisih</div>
+          <div id="ibPreviewGap" style="font-weight:700">—</div>
+        </div>
+        <div>
+          <div style="color:var(--text-dim);font-size:11px">Gap %</div>
+          <div id="ibPreviewGapPct" style="font-weight:600">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modalInputBunga')">Batal</button>
+      <button class="btn btn-primary" onclick="saveInputBunga()">Simpan &amp; Evaluasi Klaim</button>
+    </div>
+  </div>
+</div>
+@endif
+
+{{-- Modal: Input Skor Kualitatif Bank --}}
+@if(auth()->user()->canEdit())
+<div class="modal-overlay" id="modalBankScore">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-title">Input Skor Kualitatif Bank</div>
+    <div class="form-grid">
+      <div class="field col-2">
+        <label>Bank</label>
+        <select id="bsBankId"></select>
+      </div>
+      <div class="field col-2">
+        <label>Periode</label>
+        <input type="date" id="bsPeriode">
+      </div>
+
+      <div class="field" style="grid-column:1/-1">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--gold);margin-bottom:10px">Skor Kualitatif</div>
+      </div>
+
+      <div class="field col-2">
+        <label>Skor Layanan (0-100)</label>
+        <div style="display:flex;align-items:center;gap:10px">
+          <input type="range" id="bsLayananRange" min="0" max="100" value="50" style="flex:1" oninput="document.getElementById('bsLayanan').value=this.value">
+          <input type="number" id="bsLayanan" min="0" max="100" value="50" style="width:70px" oninput="document.getElementById('bsLayananRange').value=this.value">
+        </div>
+      </div>
+      <div class="field col-2">
+        <label>Skor Keamanan (0-100)</label>
+        <div style="display:flex;align-items:center;gap:10px">
+          <input type="range" id="bsKeamananRange" min="0" max="100" value="50" style="flex:1" oninput="document.getElementById('bsKeamanan').value=this.value">
+          <input type="number" id="bsKeamanan" min="0" max="100" value="50" style="width:70px" oninput="document.getElementById('bsKeamananRange').value=this.value">
+        </div>
+      </div>
+      <div class="field col-2">
+        <label>Skor Digital (0-100) <span style="color:var(--text-dim);font-size:11px">opsional, informasional</span></label>
+        <div style="display:flex;align-items:center;gap:10px">
+          <input type="range" id="bsDigitalRange" min="0" max="100" value="50" style="flex:1" oninput="document.getElementById('bsDigital').value=this.value">
+          <input type="number" id="bsDigital" min="0" max="100" value="50" style="width:70px" oninput="document.getElementById('bsDigitalRange').value=this.value">
+        </div>
+      </div>
+
+      <div class="field" style="grid-column:1/-1">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--gold);margin-bottom:10px">Profil Bank</div>
+      </div>
+
+      <div class="field">
+        <label>Kategori Buku</label>
+        <select id="bsBuku">
+          <option value="">— Pilih —</option>
+          <option value="buku1">BUKU 1</option>
+          <option value="buku2">BUKU 2</option>
+          <option value="buku3">BUKU 3</option>
+          <option value="buku4">BUKU 4</option>
+        </select>
+      </div>
+      <div class="field" style="display:flex;align-items:flex-end;gap:10px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding-bottom:8px">
+          <input type="checkbox" id="bsIsBumn">
+          <span>Status BUMN</span>
+        </label>
+      </div>
+      <div class="field col-2">
+        <label>Jumlah Penerimaan (IDR)</label>
+        <input type="number" id="bsPenerimaan" placeholder="Total penerimaan via bank ini" step="1000000" min="0">
+      </div>
+      <div class="field col-2">
+        <label>Catatan</label>
+        <textarea id="bsCatatan" placeholder="Catatan tentang bank ini..."></textarea>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--text-dim);padding:10px 0;line-height:1.7">
+      Data skor akan digunakan dalam perhitungan rekomendasi penempatan.
+      Skor yang diinput oleh pengguna lain untuk periode yang sama akan ditimpa jika Anda menyimpan untuk bank dan periode yang sama.
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modalBankScore')">Batal</button>
+      <button class="btn btn-primary" onclick="saveBankScore()">Simpan</button>
+    </div>
+  </div>
+</div>
+@endif
+
 {{-- Modal: Idle Cash Snapshot --}}
 @if(auth()->user()->canEdit())
 <div class="modal-overlay" id="modalIdleCash">

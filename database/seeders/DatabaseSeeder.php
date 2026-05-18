@@ -105,6 +105,7 @@ class DatabaseSeeder extends Seeder
             }
         }
 
+        $this->call(ScoringWeightSeeder::class);
         $this->command->info('✅ Seeder selesai. Login: admin / Admin@12345');
         // ── Version Control (Initial) ─────────────────────────────────────────────
         if (\App\Models\VersionControl::count() === 0) {

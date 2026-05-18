@@ -721,6 +721,138 @@
   </div>
 
 </div>
+{{-- ===== VIEW: REKONSILIASI BUNGA PERIODIK ===== --}}
+<div class="view" id="view-interest-recon">
+
+  <div class="kpi-grid" id="interestKpiGrid" style="margin-bottom:20px"></div>
+
+  <div class="table-wrap">
+    <div class="table-filters">
+      <input type="date" id="irFrom" class="filter-input" style="width:150px">
+      <span style="color:var(--text-dim);font-size:12px">s/d</span>
+      <input type="date" id="irTo" class="filter-input" style="width:150px">
+      <select class="filter-select" id="irBankFilter">
+        <option value="">Semua Bank</option>
+      </select>
+      <select class="filter-select" id="irStatusFilter">
+        <option value="">Semua Status</option>
+        <option value="scheduled">Terjadwal</option>
+        <option value="pending_input">Menunggu Input</option>
+        <option value="inputted">Sudah Diinput</option>
+        <option value="verified">Terverifikasi</option>
+        <option value="claimed">Diklaim</option>
+      </select>
+      <button class="btn btn-ghost btn-sm" onclick="loadInterestRecon()">Tampilkan</button>
+    </div>
+
+    <div style="padding:10px 18px;border-top:1px solid var(--navy-bd);display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      @if(auth()->user()->canEdit())
+      <button class="btn btn-ghost btn-sm" onclick="generateSchedules()">Generate Jadwal</button>
+      <button class="btn btn-ghost btn-sm" onclick="downloadInterestTemplate()">Unduh Template</button>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('irImportFile').click()">Import Aktual</button>
+      <input type="file" id="irImportFile" style="display:none" accept=".xlsx,.xls,.csv" onchange="importInterestActual(this)">
+      @endif
+      <button class="btn btn-ghost btn-sm" onclick="exportInterestExcel()">Export Excel</button>
+      <button class="btn btn-ghost btn-sm" onclick="exportInterestPdf()">Cetak PDF</button>
+    </div>
+
+    <div style="overflow-x:auto">
+      <table id="interestTable">
+        <thead><tr>
+          <th>Bank</th>
+          <th>Nama Rekening</th>
+          <th>No. Rekening</th>
+          <th>Tipe</th>
+          <th>Tgl Bayar</th>
+          <th>Periode</th>
+          <th class="text-center">Hari</th>
+          <th style="text-align:right">Saldo</th>
+          <th style="text-align:center">Rate Efektif</th>
+          <th style="text-align:right">Bunga Seharusnya</th>
+          <th style="text-align:right">Bunga Aktual</th>
+          <th style="text-align:right">Selisih</th>
+          <th style="text-align:center">Status</th>
+          <th>Klaim</th>
+          @if(auth()->user()->canEdit()) <th>Aksi</th> @endif
+        </tr></thead>
+        <tbody id="interestTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{{-- ===== VIEW: REKOMENDASI PENEMPATAN DANA ===== --}}
+<div class="view" id="view-recommendation">
+
+  <div class="chart-card" style="margin-bottom:20px">
+    <details id="weightConfigPanel">
+      <summary style="cursor:pointer;font-family:'Playfair Display',serif;font-size:15px;color:var(--cream);padding:4px 0">
+        Konfigurasi Bobot Penilaian
+        <span id="weightSumBadge" style="font-size:12px;color:var(--gold);margin-left:10px"></span>
+      </summary>
+      <div style="margin-top:16px" id="weightSliders"></div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        @if(auth()->user()->isAdmin())
+        <button class="btn btn-primary btn-sm" onclick="saveWeights()">Simpan Bobot</button>
+        @endif
+      </div>
+    </details>
+  </div>
+
+  <div class="kpi-grid" id="recomKpiGrid" style="margin-bottom:20px"></div>
+
+  <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap">
+    <button class="btn btn-ghost" onclick="loadRecommendation()">Hitung Rekomendasi</button>
+    @if(auth()->user()->canEdit())
+    <button class="btn btn-ghost" onclick="openModal('modalBankScore')">Input Skor Bank</button>
+    <button class="btn btn-ghost" onclick="openModal('modalIdleCash')">Update Idle Cash</button>
+    @endif
+    <button class="btn btn-ghost" onclick="exportRecomExcel()">Export Excel</button>
+    <button class="btn btn-primary" onclick="exportRecomPdf()">Cetak Rekomendasi</button>
+  </div>
+
+  <div class="two-col" style="margin-bottom:20px">
+    <div class="chart-card">
+      <div class="sec-title">Profil Skor — Top 5 Bank</div>
+      <div class="sec-sub">Perbandingan dimensi penilaian antar bank</div>
+      <canvas id="radarChart" style="max-height:320px"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="sec-title">Distribusi Rekomendasi Alokasi</div>
+      <div class="sec-sub">Proporsi dana per bank berdasarkan skor</div>
+      <canvas id="allocChart" style="max-height:320px"></canvas>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <div class="table-filters">
+      <select class="filter-select" id="recomCurrency" onchange="loadRecommendation()">
+        <option value="IDR">IDR</option>
+        <option value="USD">USD</option>
+      </select>
+      <span id="recomLastUpdate" style="font-size:12px;color:var(--text-dim);margin-left:8px"></span>
+    </div>
+    <div style="overflow-x:auto">
+      <table id="recomTable">
+        <thead><tr>
+          <th>Rank</th><th>Bank</th><th>Skor Total</th>
+          <th>Rate</th><th>Layanan</th><th>Keamanan</th>
+          <th>Penerimaan</th><th>Buku</th><th>BUMN</th><th>Eksposur</th>
+          <th style="text-align:right">Rek. Nominal</th>
+          <th style="text-align:center">Rek. %</th>
+          <th style="text-align:right">Saldo Aktual</th>
+          <th style="text-align:center">Deviasi %</th>
+          @if(auth()->user()->canEdit()) <th>Aksi</th> @endif
+        </tr></thead>
+        <tbody id="recomTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="eksposurWarning" style="display:none;margin-top:12px"></div>
+
+</div>
+
 {{-- ===== VIEW: VERSION CONTROL ===== --}}
 <div class="view" id="view-version">
 

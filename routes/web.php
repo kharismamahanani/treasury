@@ -128,6 +128,25 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/api/version-control',         [\App\Http\Controllers\VersionControlController::class, 'store']);
     Route::get('/api/version-control/export',   [\App\Http\Controllers\VersionControlController::class, 'exportExcel']);
 
+    // ── Interest Schedules ────────────────────────────────────────────────────
+    Route::get('/api/interest-schedules',                         [\App\Http\Controllers\InterestScheduleController::class, 'index']);
+    Route::get('/api/interest-schedules/summary',                 [\App\Http\Controllers\InterestScheduleController::class, 'summary']);
+    Route::post('/api/interest-schedules/generate',               [\App\Http\Controllers\InterestScheduleController::class, 'generate']);
+    Route::post('/api/interest-schedules/import',                 [\App\Http\Controllers\InterestScheduleController::class, 'import']);
+    Route::get('/api/interest-schedules/template',                [\App\Http\Controllers\InterestScheduleController::class, 'downloadTemplate']);
+    Route::get('/api/interest-schedules/export/excel',            [\App\Http\Controllers\InterestScheduleController::class, 'exportExcel']);
+    Route::get('/api/interest-schedules/export/pdf',              [\App\Http\Controllers\InterestScheduleController::class, 'exportPdf']);
+    Route::put('/api/interest-schedules/{s}/input-actual',        [\App\Http\Controllers\InterestScheduleController::class, 'inputActual']);
+
+    // ── Recommendation ────────────────────────────────────────────────────────
+    Route::get('/api/recommendation',                             [\App\Http\Controllers\RecommendationController::class, 'index']);
+    Route::get('/api/recommendation/weights',                     [\App\Http\Controllers\RecommendationController::class, 'weights']);
+    Route::put('/api/recommendation/weights',                     [\App\Http\Controllers\RecommendationController::class, 'updateWeights']);
+    Route::get('/api/recommendation/export/excel',                [\App\Http\Controllers\RecommendationController::class, 'exportExcel']);
+    Route::get('/api/recommendation/export/pdf',                  [\App\Http\Controllers\RecommendationController::class, 'exportPdf']);
+    Route::get('/api/bank-scores',                                [\App\Http\Controllers\RecommendationController::class, 'bankScores']);
+    Route::post('/api/bank-scores',                               [\App\Http\Controllers\RecommendationController::class, 'storeBankScore']);
+
     // ── LAPORAN — Download Excel & PDF untuk semua menu ──────────────────────
     Route::prefix('api/laporan')->group(function () {
         // Produk Keuangan (format UM)

@@ -2858,3 +2858,664 @@ window.exportClaimsCsv = function() {
   if (sampai) url += `sampai=${sampai}`;
   window.open(url, '_blank');
 };
+
+// ════════════════════════════════════════════════════════════════════════════
+// FEATURE 1 — REKONSILIASI BUNGA PERIODIK
+// ════════════════════════════════════════════════════════════════════════════
+
+viewConfig['interest-recon'] = { title: 'Rekonsiliasi Bunga Periodik', action: null };
+
+// ── switchView extension ──
+const _origSwitchView_ir = window.switchView;
+window.switchView = function(view, el) {
+  _origSwitchView_ir(view, el);
+  if (view === 'interest-recon') loadInterestRecon();
+};
+
+// Set default date range (first/last of current month) on DOMContentLoaded
+document.addEventListener('DOMContentLoaded', function() {
+  const irFrom = document.getElementById('irFrom');
+  const irTo   = document.getElementById('irTo');
+  if (irFrom && !irFrom.value) {
+    const now = new Date();
+    irFrom.value = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+    irTo.value   = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+  }
+
+  // Populate bank filter for interest-recon
+  const irBankFilter = document.getElementById('irBankFilter');
+  if (irBankFilter && state.banks && state.banks.length) {
+    state.banks.forEach(b => {
+      const opt = document.createElement('option');
+      opt.value = b.id; opt.textContent = b.name;
+      irBankFilter.appendChild(opt);
+    });
+  }
+
+  checkInterestOverdueBadge();
+});
+
+async function loadInterestRecon() {
+  const from   = document.getElementById('irFrom')?.value   || '';
+  const to     = document.getElementById('irTo')?.value     || '';
+  const bankId = document.getElementById('irBankFilter')?.value || '';
+  const status = document.getElementById('irStatusFilter')?.value || '';
+
+  let params = '';
+  if (from)   params += `period_from=${from}&`;
+  if (to)     params += `period_to=${to}&`;
+  if (bankId) params += `bank_id=${bankId}&`;
+  if (status) params += `status=${status}&`;
+
+  const [summary, schedules] = await Promise.all([
+    api(`/api/interest-schedules/summary?${params}`),
+    api(`/api/interest-schedules?${params}`),
+  ]);
+
+  if (summary) renderInterestKpis(summary);
+  if (schedules) renderInterestTable(schedules);
+
+  // Update bank filter options if empty
+  const irBankFilter = document.getElementById('irBankFilter');
+  if (irBankFilter && irBankFilter.options.length <= 1 && state.banks?.length) {
+    state.banks.forEach(b => {
+      const opt = document.createElement('option');
+      opt.value = b.id; opt.textContent = b.name;
+      irBankFilter.appendChild(opt);
+    });
+  }
+}
+
+function renderInterestKpis(summary) {
+  const grid = document.getElementById('interestKpiGrid');
+  if (!grid) return;
+  grid.innerHTML = `
+    <div class="kpi-card c-gold">
+      <div class="kpi-label">Bunga Diharapkan</div>
+      <div class="kpi-value">${fmtMoney(summary.total_expected)}</div>
+    </div>
+    <div class="kpi-card c-green">
+      <div class="kpi-label">Terealisasi</div>
+      <div class="kpi-value">${fmtMoney(summary.total_actual)}</div>
+    </div>
+    <div class="kpi-card ${summary.total_gap > 0 ? 'c-red' : 'c-safe'}">
+      <div class="kpi-label">Total Selisih</div>
+      <div class="kpi-value">${fmtMoney(summary.total_gap)}</div>
+    </div>
+    <div class="kpi-card ${summary.count_overdue > 0 ? 'c-warn' : 'c-blue'}">
+      <div class="kpi-label">Overdue</div>
+      <div class="kpi-value">${summary.count_overdue}</div>
+      <div class="kpi-sub">${summary.count_pending} menunggu input</div>
+    </div>
+  `;
+}
+
+function renderInterestTable(schedules) {
+  const tbody = document.getElementById('interestTableBody');
+  if (!tbody) return;
+  if (!schedules?.length) {
+    tbody.innerHTML = `<tr><td colspan="15"><div class="empty-state"><p>Tidak ada jadwal bunga untuk periode ini.</p></div></td></tr>`;
+    return;
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  tbody.innerHTML = schedules.map(s => {
+    const isOverdue = (s.status === 'scheduled' || s.status === 'pending_input') && s.payment_date < today;
+    let rowBg = '';
+    if (s.is_shortfall) rowBg = 'background:rgba(224,85,85,0.04)';
+    else if (isOverdue) rowBg = 'background:rgba(240,168,72,0.04)';
+
+    const gapStyle  = s.interest_gap > 0  ? 'color:var(--red);font-weight:600' : 'color:var(--green)';
+    const canInput  = CAN_EDIT && s.status !== 'verified' && s.status !== 'claimed';
+
+    return `<tr style="${rowBg}">
+      <td><strong>${s.product?.bank_name || '—'}</strong></td>
+      <td style="font-size:11px">${s.product?.nama_rekening || '—'}</td>
+      <td style="font-size:11px;color:var(--text-dim)">${s.product?.account_number || '—'}</td>
+      <td>${badge(s.product?.type || '—')}</td>
+      <td>${fmtDate(s.payment_date)}</td>
+      <td style="font-size:11px;color:var(--text-dim)">${fmtDate(s.period_start)}<br>s/d ${fmtDate(s.period_end)}</td>
+      <td class="text-center">${s.days_in_period}</td>
+      <td style="text-align:right">${fmtRupiah(s.balance_at_period, s.product?.currency)}</td>
+      <td style="text-align:center;color:var(--gold)">${parseFloat(s.effective_rate||0).toFixed(4)}%</td>
+      <td style="text-align:right">${fmtRupiah(s.interest_expected, s.product?.currency)}</td>
+      <td style="text-align:right">${s.interest_actual !== null ? fmtRupiah(s.interest_actual, s.product?.currency) : '<span style="color:var(--text-dim)">—</span>'}</td>
+      <td style="text-align:right;${gapStyle}">${s.interest_gap !== null ? fmtRupiah(s.interest_gap, s.product?.currency) : '—'}</td>
+      <td style="text-align:center"><span class="badge bd-${s.status_color}">${s.status_label}</span></td>
+      <td>${s.claim_number ? `<span style="color:var(--gold);font-size:11px">${s.claim_number}</span>` : '—'}</td>
+      ${CAN_EDIT ? `<td>${canInput ? `<button class="btn btn-ghost btn-sm" onclick='openInputBungaModal(${JSON.stringify(s)})'>Input</button>` : ''}</td>` : ''}
+    </tr>`;
+  }).join('');
+}
+
+function openInputBungaModal(schedule) {
+  state.editingSchedule = schedule;
+
+  document.getElementById('ibBankName').textContent = schedule.product?.bank_name || '—';
+  document.getElementById('ibRekening').textContent =
+    (schedule.product?.nama_rekening || '') + ' · ' + (schedule.product?.account_number || '');
+  document.getElementById('ibPeriode').textContent =
+    fmtDate(schedule.period_start) + ' — ' + fmtDate(schedule.period_end) + ' (' + schedule.days_in_period + ' hari)';
+  document.getElementById('ibExpected').textContent =
+    fmtRupiah(schedule.interest_expected, schedule.product?.currency);
+
+  document.getElementById('ibRate').value   = schedule.effective_rate || '';
+  document.getElementById('ibActual').value = '';
+  document.getElementById('ibNote').value   = '';
+  document.getElementById('ibPreviewBox').style.display = 'none';
+
+  openModal('modalInputBunga');
+}
+
+function previewBungaGap() {
+  const s = state.editingSchedule;
+  if (!s) return;
+
+  const rate   = parseFloat(document.getElementById('ibRate')?.value) || 0;
+  const actual = parseFloat(document.getElementById('ibActual')?.value);
+
+  const denom    = 365;
+  const expected = (parseFloat(s.balance_at_period) || 0) * (rate / 100) * (s.days_in_period || 0) / denom;
+
+  document.getElementById('ibPreviewExpected').textContent = fmtRupiah(expected, s.product?.currency);
+
+  if (!isNaN(actual)) {
+    const gap    = expected - actual;
+    const gapPct = expected > 0 ? (gap / expected * 100).toFixed(2) : '0.00';
+    const color  = gap > 0 ? 'color:var(--red)' : 'color:var(--green)';
+
+    document.getElementById('ibPreviewActual').textContent = fmtRupiah(actual, s.product?.currency);
+    document.getElementById('ibPreviewGap').innerHTML      = `<span style="${color}">${fmtRupiah(gap, s.product?.currency)}</span>`;
+    document.getElementById('ibPreviewGapPct').innerHTML   = `<span style="${color}">${gapPct}%</span>`;
+    document.getElementById('ibPreviewBox').style.display  = 'block';
+  }
+}
+
+async function saveInputBunga() {
+  const s = state.editingSchedule;
+  if (!s) return;
+
+  const actual = document.getElementById('ibActual')?.value;
+  const rate   = document.getElementById('ibRate')?.value;
+  const note   = document.getElementById('ibNote')?.value;
+
+  if (!actual) { toast('Bunga aktual wajib diisi.', 'error'); return; }
+
+  const body = { interest_actual: actual };
+  if (rate) body.effective_rate = rate;
+  if (note) body.note = note;
+
+  const result = await api(`/api/interest-schedules/${s.id}/input-actual`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrfToken() },
+    body: JSON.stringify(body),
+  });
+
+  if (result?.success) {
+    closeModal('modalInputBunga');
+    const msg = result.claim_created
+      ? `Bunga aktual disimpan. Klaim otomatis dibuat: ${result.claim?.claim_number}`
+      : 'Bunga aktual berhasil disimpan.';
+    toast(msg, 'success');
+    loadInterestRecon();
+  } else {
+    toast(result?.message || 'Gagal menyimpan.', 'error');
+  }
+}
+
+async function generateSchedules() {
+  if (!confirm('Generate jadwal bunga untuk semua produk aktif? Jadwal yang sudah ada tidak akan duplikasi.')) return;
+
+  const result = await api('/api/interest-schedules/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrfToken() },
+    body: JSON.stringify({}),
+  });
+
+  if (result?.success) {
+    toast(`${result.generated_count} jadwal dibuat untuk ${result.products_processed} produk.`, 'success');
+    loadInterestRecon();
+  } else {
+    toast('Gagal generate jadwal.', 'error');
+  }
+}
+
+function downloadInterestTemplate() {
+  const from   = document.getElementById('irFrom')?.value   || '';
+  const to     = document.getElementById('irTo')?.value     || '';
+  const bankId = document.getElementById('irBankFilter')?.value || '';
+  let url = '/api/interest-schedules/template?';
+  if (from)   url += `period_from=${from}&`;
+  if (to)     url += `period_to=${to}&`;
+  if (bankId) url += `bank_id=${bankId}`;
+  window.open(url, '_blank');
+}
+
+async function importInterestActual(fileInput) {
+  const file = fileInput.files[0];
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const result = await api('/api/interest-schedules/import', {
+    method: 'POST',
+    headers: { 'X-CSRF-TOKEN': getCsrfToken() },
+    body: formData,
+  });
+
+  fileInput.value = '';
+
+  if (result?.success) {
+    let msg = `Import selesai: ${result.updated} baris diperbarui`;
+    if (result.claims_created > 0) msg += `, ${result.claims_created} klaim dibuat`;
+    if (result.errors?.length) msg += `. ${result.errors.length} error (cek konsol).`;
+    toast(msg, result.errors?.length ? 'warn' : 'success');
+    if (result.errors?.length) console.warn('Import errors:', result.errors);
+    loadInterestRecon();
+  } else {
+    toast('Gagal import.', 'error');
+  }
+}
+
+function exportInterestExcel() {
+  const from   = document.getElementById('irFrom')?.value   || '';
+  const to     = document.getElementById('irTo')?.value     || '';
+  const bankId = document.getElementById('irBankFilter')?.value || '';
+  const status = document.getElementById('irStatusFilter')?.value || '';
+  let url = '/api/interest-schedules/export/excel?';
+  if (from)   url += `period_from=${from}&`;
+  if (to)     url += `period_to=${to}&`;
+  if (bankId) url += `bank_id=${bankId}&`;
+  if (status) url += `status=${status}`;
+  window.open(url, '_blank');
+}
+
+function exportInterestPdf() {
+  const from   = document.getElementById('irFrom')?.value   || '';
+  const to     = document.getElementById('irTo')?.value     || '';
+  const bankId = document.getElementById('irBankFilter')?.value || '';
+  const status = document.getElementById('irStatusFilter')?.value || '';
+  let url = '/api/interest-schedules/export/pdf?';
+  if (from)   url += `period_from=${from}&`;
+  if (to)     url += `period_to=${to}&`;
+  if (bankId) url += `bank_id=${bankId}&`;
+  if (status) url += `status=${status}`;
+  window.open(url, '_blank');
+}
+
+async function checkInterestOverdueBadge() {
+  const badge = document.getElementById('interestOverdueBadge');
+  if (!badge) return;
+  const summary = await api('/api/interest-schedules/summary');
+  if (summary?.count_overdue > 0) {
+    badge.textContent = summary.count_overdue;
+    badge.style.display = 'inline-block';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+
+// ════════════════════════════════════════════════════════════════════════════
+// FEATURE 2 — REKOMENDASI PENEMPATAN DANA
+// ════════════════════════════════════════════════════════════════════════════
+
+viewConfig['recommendation'] = { title: 'Rekomendasi Penempatan Dana', action: null };
+
+// switchView extension
+const _origSwitchView_rec = window.switchView;
+window.switchView = function(view, el) {
+  _origSwitchView_rec(view, el);
+  if (view === 'recommendation') {
+    initWeightSliders();
+    loadRecommendation();
+    // Populate bank select in score modal
+    const bsBankId = document.getElementById('bsBankId');
+    if (bsBankId && bsBankId.options.length <= 1 && state.banks?.length) {
+      state.banks.forEach(b => {
+        const opt = document.createElement('option');
+        opt.value = b.id; opt.textContent = b.name;
+        bsBankId.appendChild(opt);
+      });
+    }
+    // Default periode for bank score modal
+    const bsPeriode = document.getElementById('bsPeriode');
+    if (bsPeriode && !bsPeriode.value) {
+      const now = new Date();
+      bsPeriode.value = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+    }
+  }
+};
+
+async function loadRecommendation() {
+  const currency = document.getElementById('recomCurrency')?.value || 'IDR';
+  const result = await api(`/api/recommendation?currency=${currency}`);
+
+  if (!result) return;
+
+  if (!result.success) {
+    if (result.needs_snapshot) {
+      document.getElementById('recomTableBody').innerHTML =
+        `<tr><td colspan="15"><div class="empty-state" style="padding:40px">
+          <p>Belum ada data idle cash. Silakan <a href="#" onclick="openModal('modalIdleCash');return false;" style="color:var(--gold)">input idle cash</a> terlebih dahulu.</p>
+        </div></td></tr>`;
+    }
+    return;
+  }
+
+  if (!result.is_weights_valid) {
+    toast('Total bobot tidak sama dengan 100%. Periksa konfigurasi bobot.', 'warn');
+  }
+
+  renderRecomKpis(result);
+  renderRecomTable(result.results);
+  renderRadarChart(result.results.slice(0, 5), result.weights_used);
+  renderAllocChart(result.results);
+
+  const lastUpdate = document.getElementById('recomLastUpdate');
+  if (lastUpdate) lastUpdate.textContent = 'Update: ' + (result.snapshot_date || '—');
+}
+
+function renderRecomKpis(data) {
+  const grid = document.getElementById('recomKpiGrid');
+  if (!grid) return;
+
+  const top     = data.results?.[0];
+  const highExp = data.results?.reduce((a, b) => a.current_pct > b.current_pct ? a : b, {bank_name:'—', current_pct:0});
+
+  grid.innerHTML = `
+    <div class="kpi-card c-gold">
+      <div class="kpi-label">Total Idle Cash</div>
+      <div class="kpi-value">${fmtMoney(data.total_idle_idr)}</div>
+      <div class="kpi-sub">IDR</div>
+    </div>
+    <div class="kpi-card c-green">
+      <div class="kpi-label">Bank Terbaik</div>
+      <div class="kpi-value">${top?.bank_name || '—'}</div>
+      <div class="kpi-sub">Skor: ${top ? parseFloat(top.final_score).toFixed(2) : '—'}</div>
+    </div>
+    <div class="kpi-card ${highExp.current_pct > 30 ? 'c-warn' : 'c-blue'}">
+      <div class="kpi-label">Konsentrasi Tertinggi</div>
+      <div class="kpi-value">${highExp.bank_name || '—'}</div>
+      <div class="kpi-sub">${parseFloat(highExp.current_pct||0).toFixed(2)}%</div>
+    </div>
+    <div class="kpi-card c-blue">
+      <div class="kpi-label">Bank Dievaluasi</div>
+      <div class="kpi-value">${data.results?.length || 0}</div>
+    </div>
+  `;
+}
+
+function renderRecomTable(results) {
+  const tbody = document.getElementById('recomTableBody');
+  if (!tbody) return;
+  if (!results?.length) {
+    tbody.innerHTML = `<tr><td colspan="15"><div class="empty-state"><p>Tidak ada data bank untuk dievaluasi.</p></div></td></tr>`;
+    return;
+  }
+
+  const rankBorder = ['','border-left:3px solid var(--gold)','border-left:3px solid #aaa','border-left:3px solid #cd7f32'];
+
+  let hasWarning = false;
+
+  tbody.innerHTML = results.map(r => {
+    const border = rankBorder[r.rank] || '';
+    const bg     = r.rank === 1 ? 'background:rgba(201,169,110,0.06)' : '';
+    if (r.eksposur_warning) hasWarning = true;
+
+    const devColor = r.deviation_pct < 0 ? 'color:var(--green)' : (r.deviation_pct > 0 ? 'color:var(--warn)' : '');
+    const devSign  = r.deviation_pct > 0 ? '+' : '';
+
+    const dimBar = (val) =>
+      `<div style="display:flex;align-items:center;gap:4px">
+        <div style="flex:1;background:var(--navy);border-radius:3px;height:6px;overflow:hidden">
+          <div style="width:${Math.min(100,val)}%;height:100%;background:var(--gold);border-radius:3px"></div>
+        </div>
+        <span style="font-size:10px;min-width:26px">${parseFloat(val).toFixed(0)}</span>
+      </div>`;
+
+    return `<tr style="${border};${bg}">
+      <td class="text-center"><strong>${r.rank}</strong></td>
+      <td>
+        <strong>${r.bank_name}</strong>
+        ${r.eksposur_warning ? `<span class="badge bd-warn" style="font-size:10px;margin-left:4px">⚠ Konsentrasi</span>` : ''}
+        ${!r.has_score_data ? `<span style="color:var(--text-dim);font-size:10px;display:block">Belum ada skor</span>` : ''}
+      </td>
+      <td class="text-center"><strong style="color:var(--gold)">${parseFloat(r.final_score).toFixed(2)}</strong></td>
+      <td>${dimBar(r.dimension_scores?.rate||0)}</td>
+      <td>${dimBar(r.dimension_scores?.layanan||0)}</td>
+      <td>${dimBar(r.dimension_scores?.keamanan||0)}</td>
+      <td>${dimBar(r.dimension_scores?.penerimaan||0)}</td>
+      <td>${dimBar(r.dimension_scores?.buku||0)}</td>
+      <td>${dimBar(r.dimension_scores?.bumn||0)}</td>
+      <td>${dimBar(r.dimension_scores?.eksposur||0)}</td>
+      <td style="text-align:right">${fmtRupiah(r.recommended_nominal)}</td>
+      <td class="text-center">${parseFloat(r.recommended_pct).toFixed(2)}%</td>
+      <td style="text-align:right">${fmtRupiah(r.current_nominal)}</td>
+      <td class="text-center" style="${devColor}">${devSign}${parseFloat(r.deviation_pct).toFixed(2)}%</td>
+      ${CAN_EDIT ? `<td><button class="btn btn-ghost btn-sm" onclick="openBankScoreModal(${r.bank_id})">Input Skor</button></td>` : ''}
+    </tr>`;
+  }).join('');
+
+  // Show/hide eksposur warning note
+  const warnDiv = document.getElementById('eksposurWarning');
+  if (warnDiv) {
+    if (hasWarning) {
+      warnDiv.style.display = 'block';
+      warnDiv.innerHTML = `<div class="alert-banner" style="background:rgba(240,168,72,0.1);border-color:rgba(240,168,72,0.3);color:var(--warn)">
+        <strong>⚠ Perhatian Konsentrasi:</strong> Satu atau lebih bank memiliki porsi investasi aktual &gt;30%.
+        Pertimbangkan diversifikasi untuk mengurangi risiko konsentrasi.
+      </div>`;
+    } else {
+      warnDiv.style.display = 'none';
+    }
+  }
+}
+
+let _radarChart = null;
+let _allocChart = null;
+
+function renderRadarChart(top5, weightsUsed) {
+  const ctx = document.getElementById('radarChart');
+  if (!ctx) return;
+  if (_radarChart) _radarChart.destroy();
+
+  const labels = ['Rate', 'Layanan', 'Keamanan', 'Penerimaan', 'Buku', 'BUMN', 'Eksposur'];
+  const colors = ['#c9a96e','#4a9eff','#2da45e','#e05555','#a78bfa','#f59e0b','#06b6d4'];
+
+  const datasets = top5.map((b, i) => ({
+    label: b.bank_name,
+    data: [
+      b.dimension_scores?.rate        || 0,
+      b.dimension_scores?.layanan     || 0,
+      b.dimension_scores?.keamanan    || 0,
+      b.dimension_scores?.penerimaan  || 0,
+      b.dimension_scores?.buku        || 0,
+      b.dimension_scores?.bumn        || 0,
+      b.dimension_scores?.eksposur    || 0,
+    ],
+    borderColor: colors[i % colors.length],
+    backgroundColor: colors[i % colors.length] + '22',
+    pointBackgroundColor: colors[i % colors.length],
+  }));
+
+  _radarChart = new Chart(ctx, {
+    type: 'radar',
+    data: { labels, datasets },
+    options: {
+      scales: { r: { min: 0, max: 100, ticks: { stepSize: 25 } } },
+      plugins: { legend: { position: 'bottom' } },
+    },
+  });
+}
+
+function renderAllocChart(results) {
+  const ctx = document.getElementById('allocChart');
+  if (!ctx) return;
+  if (_allocChart) _allocChart.destroy();
+
+  const labels = results.map(r => r.bank_name);
+  const data   = results.map(r => parseFloat(r.recommended_pct).toFixed(2));
+  const bg     = ['#c9a96e','#4a9eff','#2da45e','#e05555','#a78bfa','#f59e0b','#06b6d4','#ec4899'];
+
+  _allocChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{ data, backgroundColor: bg.slice(0, results.length), borderWidth: 2 }],
+    },
+    options: {
+      plugins: { legend: { position: 'bottom' } },
+    },
+  });
+}
+
+async function openBankScoreModal(bankId) {
+  // Pre-select bank
+  const bsBankId = document.getElementById('bsBankId');
+  if (bsBankId) bsBankId.value = bankId;
+
+  // Pre-fill with latest score if available
+  const scores = await api(`/api/bank-scores?bank_id=${bankId}`);
+  if (scores?.[0]) {
+    const s = scores[0];
+    document.getElementById('bsPeriode').value        = s.periode || '';
+    document.getElementById('bsLayanan').value        = s.skor_layanan  ?? 50;
+    document.getElementById('bsLayananRange').value   = s.skor_layanan  ?? 50;
+    document.getElementById('bsKeamanan').value       = s.skor_keamanan ?? 50;
+    document.getElementById('bsKeamananRange').value  = s.skor_keamanan ?? 50;
+    document.getElementById('bsDigital').value        = s.skor_digital  ?? 50;
+    document.getElementById('bsDigitalRange').value   = s.skor_digital  ?? 50;
+    document.getElementById('bsBuku').value           = s.buku_bank     || '';
+    document.getElementById('bsIsBumn').checked       = !!s.is_bumn;
+    document.getElementById('bsPenerimaan').value     = s.jumlah_penerimaan || '';
+    document.getElementById('bsCatatan').value        = s.catatan || '';
+  }
+
+  openModal('modalBankScore');
+}
+
+async function saveBankScore() {
+  const body = {
+    bank_id:           document.getElementById('bsBankId')?.value,
+    periode:           document.getElementById('bsPeriode')?.value,
+    skor_layanan:      document.getElementById('bsLayanan')?.value,
+    skor_keamanan:     document.getElementById('bsKeamanan')?.value,
+    skor_digital:      document.getElementById('bsDigital')?.value,
+    jumlah_penerimaan: document.getElementById('bsPenerimaan')?.value || null,
+    buku_bank:         document.getElementById('bsBuku')?.value || null,
+    is_bumn:           document.getElementById('bsIsBumn')?.checked ? 1 : 0,
+    catatan:           document.getElementById('bsCatatan')?.value || null,
+  };
+
+  const result = await api('/api/bank-scores', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrfToken() },
+    body: JSON.stringify(body),
+  });
+
+  if (result?.success) {
+    toast('Skor bank berhasil disimpan.', 'success');
+    closeModal('modalBankScore');
+    loadRecommendation();
+  } else {
+    toast(result?.message || 'Gagal menyimpan skor bank.', 'error');
+  }
+}
+
+async function initWeightSliders() {
+  const container = document.getElementById('weightSliders');
+  if (!container) return;
+
+  const weights = await api('/api/recommendation/weights');
+  if (!weights?.length) return;
+
+  container.innerHTML = weights.map(w => `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+      <label style="width:200px;font-size:12px;color:var(--cream)">${w.name}</label>
+      <input type="range" id="ws_range_${w.id}" min="0" max="50" step="0.5"
+             value="${w.weight}" style="flex:1"
+             oninput="document.getElementById('ws_num_${w.id}').value=this.value;updateWeightSum()">
+      <input type="number" id="ws_num_${w.id}" min="0" max="50" step="0.5"
+             value="${w.weight}" style="width:65px"
+             oninput="document.getElementById('ws_range_${w.id}').value=this.value;updateWeightSum()">
+      <span style="font-size:12px;color:var(--text-dim)">%</span>
+      <input type="hidden" id="ws_id_${w.id}" value="${w.id}">
+      <input type="checkbox" id="ws_active_${w.id}" ${w.is_active ? 'checked' : ''}
+             onchange="updateWeightSum()" title="Aktif">
+    </div>
+  `).join('');
+
+  updateWeightSum();
+  container._weights = weights;
+}
+
+function updateWeightSum() {
+  const container = document.getElementById('weightSliders');
+  if (!container?._weights) return;
+
+  let sum = 0;
+  container._weights.forEach(w => {
+    const active = document.getElementById(`ws_active_${w.id}`)?.checked ?? true;
+    if (active) {
+      sum += parseFloat(document.getElementById(`ws_num_${w.id}`)?.value || 0);
+    }
+  });
+
+  const badge = document.getElementById('weightSumBadge');
+  if (badge) {
+    const rounded = Math.round(sum * 100) / 100;
+    badge.textContent = `Total: ${rounded}%`;
+    badge.style.color = Math.abs(rounded - 100) < 0.01 ? 'var(--green)' : 'var(--red)';
+  }
+}
+
+async function saveWeights() {
+  const container = document.getElementById('weightSliders');
+  if (!container?._weights) return;
+
+  const items = container._weights.map(w => ({
+    id:        w.id,
+    weight:    parseFloat(document.getElementById(`ws_num_${w.id}`)?.value || 0),
+    is_active: document.getElementById(`ws_active_${w.id}`)?.checked ? 1 : 0,
+  }));
+
+  const activeSum = items.filter(i => i.is_active).reduce((a, b) => a + b.weight, 0);
+  if (Math.abs(activeSum - 100) > 0.01) {
+    toast(`Total bobot harus 100%. Sekarang: ${Math.round(activeSum*100)/100}%`, 'error');
+    return;
+  }
+
+  const result = await api('/api/recommendation/weights', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrfToken() },
+    body: JSON.stringify({ weights: items }),
+  });
+
+  if (result?.success) {
+    toast('Bobot berhasil disimpan.', 'success');
+    loadRecommendation();
+  } else {
+    toast(result?.message || 'Gagal menyimpan bobot.', 'error');
+  }
+}
+
+function exportRecomExcel() {
+  const currency = document.getElementById('recomCurrency')?.value || 'IDR';
+  window.open(`/api/recommendation/export/excel?currency=${currency}`, '_blank');
+}
+
+function exportRecomPdf() {
+  const currency = document.getElementById('recomCurrency')?.value || 'IDR';
+  window.open(`/api/recommendation/export/pdf?currency=${currency}`, '_blank');
+}
+
+// Expose getCsrfToken helper if not already defined
+if (typeof getCsrfToken === 'undefined') {
+  window.getCsrfToken = function() {
+    return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+      || document.querySelector('input[name="_token"]')?.value
+      || '';
+  };
+}
