@@ -1,0 +1,172 @@
+/*
+ * SmartKas — Theme System
+ * Font: Aptos (Microsoft 365) dengan fallback ke DM Sans
+ * Tema: Dark (default) dan Light
+ */
+
+/* ── Font Stack dengan Aptos ── */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&family=Playfair+Display:wght@600;700&display=swap');
+
+:root {
+  /* Font Aptos (tersedia di Windows 11 / Microsoft 365) dengan fallback */
+  --font-ui:  'Aptos', 'Aptos Display', 'DM Sans', -apple-system, BlinkMacSystemFont,
+              'Segoe UI Variable', 'Segoe UI', sans-serif;
+  /* Khusus angka — monospace agar kolom lurus */
+  --font-num: 'Aptos Mono', 'Cascadia Code', 'Consolas', 'DM Mono', monospace;
+}
+
+/* Terapkan font ke seluruh elemen */
+body, button, input, select, textarea {
+  font-family: var(--font-ui) !important;
+}
+
+/* Angka di tabel dan KPI pakai font monospace agar lurus */
+td, .kpi-value, .yield-rate {
+  font-variant-numeric: tabular-nums;
+}
+
+.font-num {
+  font-family: var(--font-num) !important;
+  letter-spacing: 0.02em;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * DARK THEME (default)
+ * ─────────────────────────────────────────────────────────────────────────── */
+:root,
+[data-theme="dark"] {
+  --navy:        #0a1628;
+  --navy-mid:    #112240;
+  --navy-card:   #152847;
+  --navy-hover:  #1c3260;
+  --navy-bd:     rgba(201,169,110,.15);
+  --gold:        #c9a96e;
+  --gold-lt:     #e8cc9a;
+  --gold-dim:    rgba(201,169,110,.25);
+  --cream:       #f5f0e8;
+  --text:        #cdd6e0;
+  --text-dim:    #6b7f96;
+  --text-muted:  #3d5166;
+  --red:         #e05555;
+  --green:       #4caf82;
+  --warn:        #f0a848;
+
+  /* Background */
+  --bg-body:     var(--navy);
+  --bg-sidebar:  var(--navy-mid);
+  --bg-card:     var(--navy-card);
+  --bg-hover:    var(--navy-hover);
+  --bg-input:    rgba(255,255,255,.04);
+  --bg-input-focus: rgba(255,255,255,.07);
+
+  /* Text */
+  --txt-primary: var(--cream);
+  --txt-body:    var(--text);
+  --txt-dim:     var(--text-dim);
+  --txt-muted:   var(--text-muted);
+
+  /* Border */
+  --bd-color:    var(--navy-bd);
+
+  /* Specific */
+  --table-row-alt: rgba(255,255,255,.02);
+  --table-row-hover: rgba(255,255,255,.03);
+  --scrollbar-track: #0d1e35;
+  --scrollbar-thumb: #1e3a5f;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * LIGHT THEME
+ * ─────────────────────────────────────────────────────────────────────────── */
+[data-theme="light"] {
+  --navy:        #f0f4f8;
+  --navy-mid:    #ffffff;
+  --navy-card:   #f8fafc;
+  --navy-hover:  #e8f0f8;
+  --navy-bd:     rgba(15,40,80,.12);
+  --gold:        #8b6914;
+  --gold-lt:     #b8900f;
+  --gold-dim:    rgba(139,105,20,.2);
+  --cream:       #0f1e2e;
+  --text:        #1e3a5f;
+  --text-dim:    #4a6080;
+  --text-muted:  #7a9ab8;
+  --red:         #cc2222;
+  --green:       #1a7a40;
+  --warn:        #b86400;
+
+  --bg-body:     #f0f4f8;
+  --bg-sidebar:  #ffffff;
+  --bg-card:     #f8fafc;
+  --bg-hover:    #e8f0f8;
+  --bg-input:    rgba(0,0,0,.04);
+  --bg-input-focus: rgba(0,0,0,.07);
+
+  --txt-primary: #0f1e2e;
+  --txt-body:    #1e3a5f;
+  --txt-dim:     #4a6080;
+  --txt-muted:   #7a9ab8;
+
+  --bd-color:    rgba(15,40,80,.12);
+
+  --table-row-alt:   rgba(0,0,0,.02);
+  --table-row-hover: rgba(0,0,0,.03);
+  --scrollbar-track: #dce8f0;
+  --scrollbar-thumb: #a0b8cc;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Apply CSS vars ke semua komponen
+ * Overrides app.blade.php inline colors dengan var() equivalents
+ * ─────────────────────────────────────────────────────────────────────────── */
+[data-theme="light"] body       { background: var(--bg-body); color: var(--txt-body); }
+[data-theme="light"] .sidebar   { background: var(--bg-sidebar); border-color: var(--bd-color); }
+[data-theme="light"] .topbar    { background: var(--bg-sidebar); border-color: var(--bd-color); }
+[data-theme="light"] .nav-item  { color: var(--txt-dim); }
+[data-theme="light"] .nav-item:hover { background: var(--bg-hover); color: var(--txt-body); }
+[data-theme="light"] .nav-item.active { background: rgba(139,105,20,.1); color: var(--gold); }
+[data-theme="light"] .kpi-card  { background: var(--bg-card); border-color: var(--bd-color); }
+[data-theme="light"] .kpi-value { color: var(--txt-primary); }
+[data-theme="light"] .kpi-label { color: var(--txt-dim); }
+[data-theme="light"] .chart-card{ background: var(--bg-card); border-color: var(--bd-color); }
+[data-theme="light"] .table-wrap{ background: var(--bg-card); border-color: var(--bd-color); }
+[data-theme="light"] th         { background: rgba(0,0,0,.03); color: var(--txt-dim); border-color: var(--bd-color); }
+[data-theme="light"] td         { color: var(--txt-body); border-color: rgba(0,0,0,.05); }
+[data-theme="light"] tr:hover td{ background: var(--table-row-hover); }
+[data-theme="light"] .filter-input,
+[data-theme="light"] .filter-select,
+[data-theme="light"] .field input,
+[data-theme="light"] .field select,
+[data-theme="light"] .field textarea {
+  background: var(--bg-input);
+  border-color: var(--bd-color);
+  color: var(--txt-body);
+}
+[data-theme="light"] .modal    { background: var(--bg-sidebar); border-color: var(--bd-color); }
+[data-theme="light"] .btn-ghost { color: var(--txt-dim); border-color: var(--bd-color); }
+[data-theme="light"] .btn-ghost:hover { color: var(--txt-body); }
+[data-theme="light"] .sec-title { color: var(--txt-primary); }
+[data-theme="light"] .page-title{ color: var(--txt-primary); }
+[data-theme="light"] .brand-name { color: var(--txt-primary); }
+[data-theme="light"] .user-name  { color: var(--txt-body); }
+[data-theme="light"] #toast      { background: var(--bg-card); border-color: var(--bd-color); color: var(--txt-body); }
+
+/* Scrollbar */
+* { scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track); }
+*::-webkit-scrollbar { width: 6px; height: 6px; }
+*::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+*::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
+
+/* Angka lebih mudah dibaca */
+.money, td:nth-child(n+4) { font-variant-numeric: tabular-nums; }
+strong { font-weight: 600; }
+
+/* Theme toggle button */
+.theme-toggle {
+  display: flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 8px;
+  border: 1px solid var(--navy-bd); background: transparent;
+  color: var(--text-dim); cursor: pointer; transition: all .2s;
+  flex-shrink: 0;
+}
+.theme-toggle:hover { color: var(--gold); border-color: var(--gold-dim); }

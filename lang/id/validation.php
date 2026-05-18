@@ -1,0 +1,25 @@
+<?php
+return [
+    'required' => 'Field :attribute wajib diisi.',
+    'email'    => ':attribute harus berupa alamat email yang valid.',
+    'min'      => ['string' => ':attribute minimal :min karakter.'],
+    'max'      => ['string' => ':attribute maksimal :max karakter.'],
+    'unique'   => ':attribute sudah digunakan.',
+    'numeric'  => ':attribute harus berupa angka.',
+    'date'     => ':attribute bukan tanggal yang valid.',
+    'in'       => ':attribute yang dipilih tidak valid.',
+    'exists'   => ':attribute yang dipilih tidak ada dalam database.',
+    'mimes'    => ':attribute harus berupa file bertipe: :values.',
+    'after_or_equal' => ':attribute harus sama dengan atau setelah :date.',
+    'attributes' => [
+        'username'   => 'username',
+        'password'   => 'password',
+        'name'       => 'nama',
+        'email'      => 'email',
+        'bank_id'    => 'bank',
+        'balance'    => 'saldo',
+        'yield_rate' => 'imbal hasil',
+        'currency'   => 'mata uang',
+        'type'       => 'tipe',
+    ],
+];
