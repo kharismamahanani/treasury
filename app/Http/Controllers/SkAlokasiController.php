@@ -246,6 +246,7 @@ class SkAlokasiController extends Controller
         $rekUsd     = $snapshot ? $sk->hitungRekomendasi((float) $snapshot->total_idle_usd, 'USD') : [];
         $kepatuhan  = $this->evaluasiKepatuhan($sk, $rekIdr, 'IDR');
 
+        \App\Models\ExportLog::record('sk_alokasi_pdf', ['sk_id' => $sk->id]);
         return view('sk-alokasi.pdf', compact('sk', 'snapshot', 'rekIdr', 'rekUsd', 'kepatuhan'));
     }
 

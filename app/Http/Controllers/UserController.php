@@ -93,6 +93,7 @@ class UserController extends Controller
             'created'   => $u->created_at?->format('d/m/Y'),
         ])->toArray();
 
+        \App\Models\ExportLog::record('users_excel', [], $users->count());
         return \App\Services\ExcelHelper::download(
             filename: 'daftar_pengguna',
             columns:  $columns,

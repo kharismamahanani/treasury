@@ -5,7 +5,15 @@ let importFile = null;
 /* ===== INIT ===== */
 document.addEventListener('DOMContentLoaded', async () => {
   await loadBanks();
-  await loadDashboard();
+
+  // Honour ?v=xxx param set by fallback switchView on non-SPA pages
+  const urlView = new URLSearchParams(window.location.search).get('v');
+  if (urlView && document.getElementById('view-' + urlView)) {
+    switchView(urlView, document.querySelector('[data-view="' + urlView + '"]'));
+  } else {
+    await loadDashboard();
+  }
+
   checkMaturityAlert();
 });
 
@@ -2686,21 +2694,30 @@ window.filterProducts = function() {
 const _origOpenProductModal = window.openProductModal;
 window.openProductModal = function(product = null) {
   _origOpenProductModal(product);
-  // Isi field tambahan
-  const namaEl = document.getElementById('pNamaRekening');
-  const katEl  = document.getElementById('pKategoriRekening');
-  if (namaEl) namaEl.value = product?.nama_rekening ?? '';
-  if (katEl)  katEl.value  = product?.kategori_rekening ?? '';
+
+  const namaEl    = document.getElementById('pNamaRekening');
+  const katEl     = document.getElementById('pKategoriRekening');
+  const bilyetEl  = document.getElementById('pNomorBilyet');
+  if (namaEl)   namaEl.value   = product?.nama_rekening   ?? '';
+  if (katEl)    katEl.value    = product?.kategori_rekening ?? '';
+  if (bilyetEl) bilyetEl.value = product?.nomor_bilyet     ?? '';
+
+  // Trigger Alpine component sync after all values are set
+  const modalEl = document.querySelector('#modalProduct [x-data]');
+  if (modalEl && window.Alpine) {
+    const alpineData = Alpine.$data(modalEl);
+    if (alpineData?.syncFromModal) alpineData.syncFromModal();
+  }
 };
 
 /** Override saveProduct untuk kirim field baru */
 const _origSaveProduct = window.saveProduct;
 window.saveProduct = async function() {
-  // Tambahkan field baru ke data sebelum kirim
-  const namaRekening  = document.getElementById('pNamaRekening')?.value || '';
+  const namaRekening  = document.getElementById('pNamaRekening')?.value  || '';
   const kategoriRek   = document.getElementById('pKategoriRekening')?.value || '';
+  const nomorBilyet   = document.getElementById('pNomorBilyet')?.value    || '';
 
-  // Patch: intercept fetch
+  // Patch: intercept fetch once to inject extra fields
   const origFetch = window.fetch;
   window.fetch = function(url, options) {
     if (url.includes('/api/products') && options?.body) {
@@ -2708,6 +2725,7 @@ window.saveProduct = async function() {
         const body = JSON.parse(options.body);
         body.nama_rekening     = namaRekening;
         body.kategori_rekening = kategoriRek;
+        body.nomor_bilyet      = nomorBilyet || null;
         options = { ...options, body: JSON.stringify(body) };
       } catch(e) {}
     }

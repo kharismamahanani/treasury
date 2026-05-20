@@ -177,6 +177,7 @@ class RecommendationController extends Controller
             'deviation_pct'      => $r['deviation_pct'],
         ])->toArray();
 
+        \App\Models\ExportLog::record('recommendation_excel', $request->only('currency','periode'), count($rows));
         return ExcelHelper::download(
             filename:   'rekomendasi_penempatan_' . now()->format('Y-m'),
             columns:    $columns,
@@ -202,6 +203,7 @@ class RecommendationController extends Controller
         $results  = $this->service->calculate($totalIdle, $currency, $periode);
         $weights  = ScoringWeight::active()->orderByDesc('weight')->get();
 
+        \App\Models\ExportLog::record('recommendation_pdf', $request->only('currency','periode'), count($results));
         return view('recommendation.pdf', [
             'results'          => $results,
             'weights_used'     => $weights,

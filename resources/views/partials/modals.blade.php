@@ -1,21 +1,24 @@
 {{-- Modal: Produk --}}
 <div class="modal-overlay" id="modalProduct">
-  <div class="modal">
+  <div class="modal" x-data="depositoForm()" x-init="init()">
     <div class="modal-title" id="modalProductTitle">Tambah Produk Keuangan</div>
     <div class="form-grid">
+
       <div class="field col-2">
         <label>Bank</label>
-        <select id="pBankId"></select>
+        <select id="pBankId" @change="onBankChange()"></select>
       </div>
+
       <div class="field">
         <label>Tipe Produk</label>
-        <select id="pType" onchange="toggleDepositoFields()">
+        <select id="pType" onchange="toggleDepositoFields()" @change="onTypeChange()">
           <option value="kas">Kas</option>
           <option value="deposito">Deposito</option>
           <option value="giro">Giro</option>
           <option value="tabungan">Tabungan</option>
         </select>
       </div>
+
       <div class="field">
         <label>Mata Uang</label>
         <select id="pCurrency">
@@ -23,14 +26,28 @@
           <option value="USD">USD — Dollar</option>
         </select>
       </div>
-      <div class="field col-2">
+
+      <div class="field">
         <label>Nomor Rekening / Seri</label>
-        <input type="text" id="pAccountNumber" placeholder="Mis: 4445513122, DEP-2024-001">
+        <input type="text" id="pAccountNumber" placeholder="Mis: 4445513122">
       </div>
+
+      <div class="field" id="pNomorBilyetWrap">
+        <label>
+          Nomor Bilyet
+          <span style="font-size:10px;color:var(--text-muted);margin-left:4px">(Deposito)</span>
+        </label>
+        <input type="text" id="pNomorBilyet" placeholder="Mis: DEP-2024-001" style="font-family:monospace">
+        <div style="font-size:11px;color:var(--text-muted);margin-top:3px">
+          Nomor sertifikat fisik dari bank — unik per bank
+        </div>
+      </div>
+
       <div class="field">
         <label>Nama Rekening</label>
         <input type="text" id="pNamaRekening" placeholder="Mis: PEN GRO 1 UM, RPK DEP 1 UM">
       </div>
+
       <div class="field">
         <label>Kategori Rekening</label>
         <select id="pKategoriRekening">
@@ -43,35 +60,78 @@
           <option value="dana_abadi_deposito">Deposito Dana Abadi</option>
         </select>
       </div>
+
       <div class="field col-2">
-        <label>Saldo</label>
-        <input type="number" id="pBalance" placeholder="Nominal saldo" step="0.01" min="0">
+        <label>Saldo (Nominal Penempatan)</label>
+        <input type="number" id="pBalance" placeholder="Nominal saldo" step="0.01" min="0"
+               @input="updateBalanceFmt()">
+        <div x-show="balanceFmt" x-text="balanceFmt"
+             style="font-size:12px;color:var(--gold);margin-top:4px;font-family:monospace"></div>
       </div>
-      <div class="field">
+
+      <div class="field col-2">
         <label>Imbal Hasil Penawaran (% p.a.)</label>
-        <input type="number" id="pYieldRate" placeholder="Rate yang dijanjikan bank" step="0.01" min="0" max="100">
+        <input type="number" id="pYieldRate" placeholder="Rate yang dijanjikan bank"
+               step="0.0001" min="0" max="100" @input="checkRateWarning()">
+
+        {{-- Rate hint dari rate_notifications --}}
+        <div x-show="rateHint"
+             style="margin-top:5px;font-size:11px;color:var(--text-dim);
+                    background:rgba(201,169,110,.06);border:1px solid var(--gold-dim);
+                    border-radius:6px;padding:5px 10px;line-height:1.6">
+          <span style="color:var(--gold);font-weight:500">Rate terakhir bank:</span>
+          <span x-text="rateHint ? parseFloat(rateHint.rate_baru).toFixed(4) + '%' : ''"></span>
+          <span style="color:var(--text-muted)" x-text="rateHint ? ' — berlaku ' + rateHint.berlaku_mulai + ', surat ' + rateHint.nomor_surat : ''"></span>
+        </div>
+
+        {{-- Peringatan selisih > 0.5% --}}
+        <div x-show="rateWarning"
+             style="margin-top:5px;font-size:11px;color:var(--warn);
+                    background:rgba(240,168,72,.08);border:1px solid rgba(240,168,72,.3);
+                    border-radius:6px;padding:5px 10px">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:middle;margin-right:4px"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Rate yang diinput berbeda lebih dari 0,5% dari rate notifikasi terakhir bank ini.
+          Pastikan sesuai dengan surat penawaran yang berlaku.
+        </div>
       </div>
+
       <div class="field" id="pTenorWrap">
         <label>Tenor (Hari)</label>
-        <input type="number" id="pTenorDays" placeholder="90">
+        <input type="number" id="pTenorDays" placeholder="Mis: 90, 180, 365"
+               @input="calcMaturity()">
       </div>
+
       <div class="field" id="pPlacementWrap">
         <label>Tgl Penempatan</label>
-        <input type="date" id="pPlacementDate">
+        <input type="date" id="pPlacementDate" @input="calcMaturity()">
       </div>
-      <div class="field" id="pMaturityWrap">
+
+      <div class="field col-2" id="pMaturityWrap">
         <label>Tgl Jatuh Tempo</label>
         <input type="date" id="pMaturityDate">
+        <div x-show="maturityLabel"
+             style="font-size:11px;color:var(--text-dim);margin-top:3px">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:3px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Otomatis dihitung: <span x-text="maturityLabel" style="color:var(--cream);font-weight:500"></span>
+        </div>
       </div>
-      <div class="field" id="pRolloverWrap" style="display:none">
-        <label>Instruksi Jatuh Tempo</label>
+
+      <div class="field col-2" id="pRolloverWrap" style="display:none">
+        <label>
+          Instruksi Jatuh Tempo
+          <span style="color:var(--red);margin-left:2px" title="Wajib untuk deposito">*</span>
+        </label>
         <select id="pRollover">
-          <option value="">— Pilih —</option>
-          <option value="ARO">ARO (Automatic Roll Over)</option>
-          <option value="non-ARO">Non-ARO</option>
-          <option value="pencairan">Pencairan</option>
+          <option value="">— Pilih instruksi saat jatuh tempo —</option>
+          <option value="ARO">ARO — Automatic Roll Over (perpanjang otomatis, pokok &amp; bunga)</option>
+          <option value="non-ARO">Non-ARO (perpanjang pokok saja, bunga ditransfer)</option>
+          <option value="pencairan">Pencairan (tidak diperpanjang)</option>
         </select>
+        <div id="pRolloverHelp" style="font-size:11px;color:var(--text-muted);margin-top:4px;line-height:1.5">
+          Wajib diisi sesuai klausul bilyet yang telah disepakati dengan bank.
+        </div>
       </div>
+
       <div class="field col-2">
         <label>Catatan</label>
         <textarea id="pNotes" placeholder="Informasi tambahan..."></textarea>
@@ -83,6 +143,86 @@
     </div>
   </div>
 </div>
+
+<script>
+function depositoForm() {
+  return {
+    rateHint: null,
+    rateWarning: false,
+    maturityLabel: '',
+    balanceFmt: '',
+
+    init() {
+      // Event listeners wired here so they also fire when treasury.js sets values
+      // (treasury.js uses direct DOM assignment, not Alpine reactivity)
+    },
+
+    onBankChange() {
+      this.fetchRateHint();
+    },
+
+    onTypeChange() {
+      // Reset bilyet field when switching away from deposito
+      const type = document.getElementById('pType')?.value;
+      const wrap = document.getElementById('pNomorBilyetWrap');
+      if (wrap) wrap.style.display = type === 'deposito' ? '' : 'none';
+    },
+
+    calcMaturity() {
+      const tenor = parseInt(document.getElementById('pTenorDays')?.value);
+      const placement = document.getElementById('pPlacementDate')?.value;
+      const maturityEl = document.getElementById('pMaturityDate');
+      if (tenor > 0 && placement && maturityEl) {
+        const d = new Date(placement);
+        d.setDate(d.getDate() + tenor);
+        const iso = d.toISOString().split('T')[0];
+        maturityEl.value = iso;
+        const [y, m, day] = iso.split('-');
+        const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+        this.maturityLabel = `${parseInt(day)} ${months[parseInt(m)-1]} ${y}`;
+      } else {
+        this.maturityLabel = '';
+      }
+    },
+
+    async fetchRateHint() {
+      const bankId = document.getElementById('pBankId')?.value;
+      if (!bankId) { this.rateHint = null; this.rateWarning = false; return; }
+      try {
+        const r = await fetch(`/api/banks/${bankId}/last-rate`, {
+          headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+        });
+        const data = await r.json();
+        this.rateHint = data.found ? data : null;
+        this.checkRateWarning();
+      } catch (e) {
+        this.rateHint = null;
+      }
+    },
+
+    checkRateWarning() {
+      if (!this.rateHint) { this.rateWarning = false; return; }
+      const entered = parseFloat(document.getElementById('pYieldRate')?.value);
+      const last = parseFloat(this.rateHint.rate_baru);
+      this.rateWarning = !isNaN(entered) && !isNaN(last) && Math.abs(entered - last) > 0.5;
+    },
+
+    updateBalanceFmt() {
+      const val = parseFloat(document.getElementById('pBalance')?.value);
+      if (isNaN(val) || val === 0) { this.balanceFmt = ''; return; }
+      this.balanceFmt = 'Rp ' + val.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    },
+
+    // Called from treasury.js override after modal fields are populated
+    syncFromModal() {
+      this.calcMaturity();
+      this.fetchRateHint();
+      this.updateBalanceFmt();
+      this.onTypeChange();
+    },
+  };
+}
+</script>
 
 {{-- Modal: Bank --}}
 <div class="modal-overlay" id="modalBank">

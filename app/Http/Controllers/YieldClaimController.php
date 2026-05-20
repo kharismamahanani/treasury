@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\YieldClaim;
 use App\Models\Product;
 use App\Models\Bank;
+use App\Models\ExportLog;
 use App\Services\YieldClaimService;
 use Illuminate\Support\Facades\DB;
 
@@ -241,6 +242,7 @@ class YieldClaimController extends Controller
             fclose($file);
         };
 
+        ExportLog::record('yield_claims_csv', $request->only('status','bank_id','ids'), $claims->count());
         return response()->stream($callback, 200, $headers);
     }
 
@@ -261,6 +263,7 @@ class YieldClaimController extends Controller
         // Group per bank untuk format surat per bank
         $byBank = $claims->groupBy('bank_id');
 
+        ExportLog::record('yield_claims_pdf', $request->only('ids','bank_id','status'), $claims->count());
         return view('yield-claims.pdf', [
             'claims' => $claims,
             'byBank' => $byBank,

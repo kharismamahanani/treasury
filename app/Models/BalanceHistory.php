@@ -3,9 +3,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Traits\Auditable;
 
 class BalanceHistory extends Model
 {
+    use Auditable;
+
+    public static array $auditableFields = ['balance'];
     protected $fillable = [
         'product_id', 'bank_id', 'currency', 'balance',
         'yield_rate', 'source', 'note', 'recorded_by', 'recorded_at',

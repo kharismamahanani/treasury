@@ -8,6 +8,9 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\YieldClaimController;
 use App\Http\Controllers\ReconciliationController;
+use App\Http\Controllers\BendaharaAgendaController;
+use App\Http\Controllers\RateNotificationController;
+use App\Http\Controllers\AuditLogController;
 
 // ── Autentikasi ───────────────────────────────────────────────────────────────
 Route::get('/login', function () {
@@ -23,7 +26,17 @@ Route::post('/login', function (\Illuminate\Http\Request $request) {
     if (Auth::attempt(['username' => $credentials['username'], 'password' => $credentials['password']], $request->boolean('remember'))) {
         $request->session()->regenerate();
         Auth::user()->update(['last_login_at' => now()]);
-        return redirect()->intended('/');
+
+        // Admin dengan 2FA secret → tantang verifikasi sebelum masuk
+        if (Auth::user()->isAdmin() && Auth::user()->google2fa_secret) {
+            return redirect()->route('admin.2fa.verify');
+        }
+
+        // Editor/bendahara langsung ke Agenda Kerja; admin & viewer ke dashboard
+        $default = Auth::user()->isEditor() && ! Auth::user()->isAdmin()
+            ? '/bendahara/agenda'
+            : '/';
+        return redirect()->intended($default);
     }
     return back()->withErrors(['username' => 'Username atau password salah.'])->withInput($request->only('username'));
 })->name('login.post');
@@ -35,10 +48,41 @@ Route::post('/logout', function (\Illuminate\Http\Request $request) {
     return redirect('/login');
 })->name('logout');
 
+// ── Session expired redirect ──────────────────────────────────────────────────
+Route::get('/session-expired', function () {
+    return redirect('/login')->with('session_expired', true);
+})->name('session.expired');
+
+// ── 2FA routes (auth required, 2fa middleware NOT applied here — these ARE the 2fa gates) ──
+Route::middleware(['auth'])->prefix('admin/2fa')->name('admin.2fa.')->group(function () {
+    Route::get('/setup',   [\App\Http\Controllers\TwoFactorController::class, 'setup'])         ->name('setup');
+    Route::post('/setup',  [\App\Http\Controllers\TwoFactorController::class, 'confirmSetup'])  ->name('setup.confirm');
+    Route::get('/verify',  [\App\Http\Controllers\TwoFactorController::class, 'verify'])        ->name('verify');
+    Route::post('/verify', [\App\Http\Controllers\TwoFactorController::class, 'confirmVerify']) ->name('verify.confirm');
+});
+
 // ── Protected Routes ──────────────────────────────────────────────────────────
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth', '2fa'])->group(function () {
 
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+
+    // Agenda Kerja — halaman pertama untuk bendahara (editor)
+    Route::get('/bendahara/agenda', [BendaharaAgendaController::class, 'index'])->name('bendahara.agenda');
+
+    // Notifikasi Rate Bank — multi-page, bukan SPA
+    Route::prefix('bendahara/notifikasi-rate')->name('bendahara.notifikasi-rate.')->middleware('auth')->group(function () {
+        Route::get('/',         [RateNotificationController::class, 'index'])   ->name('index');
+        Route::get('/buat',     [RateNotificationController::class, 'create'])  ->name('create');
+        Route::post('/',        [RateNotificationController::class, 'store'])   ->name('store');
+        Route::post('/terapkan',[RateNotificationController::class, 'terapkan'])->name('terapkan');
+    });
+
+    // Admin — Audit Log
+    Route::get('/admin/audit-log', [AuditLogController::class, 'index'])->name('admin.audit-log');
+
+    // API: rate terakhir sebuah bank (untuk hint di form produk baru)
+    Route::get('/api/banks/{bank}/last-rate', [RateNotificationController::class, 'lastRateForBank'])
+         ->name('api.banks.last-rate');
 
     // Export PDF yield claims (browser render)
     Route::get('/yield-claims/export/pdf', [YieldClaimController::class, 'exportPdf'])->name('yield-claims.pdf');

@@ -4,10 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Traits\Auditable;
 
 class YieldClaim extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, Auditable;
+
+    public static array $auditableFields = ['status', 'claim_amount'];
 
     protected $fillable = [
         'claim_number', 'product_id', 'bank_id',

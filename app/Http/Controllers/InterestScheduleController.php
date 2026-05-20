@@ -386,6 +386,7 @@ class InterestScheduleController extends Controller
             'claimNumber'     => $s->yieldClaim?->claim_number ?? '-',
         ])->toArray();
 
+        \App\Models\ExportLog::record('interest_schedule_excel', $request->only('period_from','period_to','product_id','bank_id','status','currency'), count($rows));
         return ExcelHelper::download(
             filename:   'rekon_bunga_' . now()->format('Y-m'),
             columns:    $columns,
@@ -422,6 +423,7 @@ class InterestScheduleController extends Controller
         $schedules = $query->orderBy('payment_date')->get();
         $grouped   = $schedules->groupBy(fn($s) => $s->product->bank->name ?? 'Unknown');
 
+        \App\Models\ExportLog::record('interest_schedule_pdf', $request->only('period_from','period_to','bank_id','status','currency'), $schedules->count());
         return view('interest-recon.pdf', [
             'grouped'     => $grouped,
             'from'        => $from,

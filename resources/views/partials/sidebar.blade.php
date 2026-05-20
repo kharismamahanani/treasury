@@ -26,9 +26,35 @@
   </div>
 
   <div class="nav-section">
+
+    @if(auth()->user()->canEdit())
+    <div class="nav-label">Bendahara</div>
+
+    <a class="nav-item {{ request()->routeIs('bendahara.agenda') ? 'active' : '' }}"
+       href="{{ route('bendahara.agenda') }}" title="Agenda Kerja">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
+        <rect x="9" y="3" width="6" height="4" rx="1"/>
+        <line x1="9" y1="12" x2="15" y2="12"/>
+        <line x1="9" y1="16" x2="13" y2="16"/>
+      </svg>
+      <span class="nav-item-label">Agenda Kerja</span>
+    </a>
+
+    <a class="nav-item {{ request()->routeIs('bendahara.notifikasi-rate.*') ? 'active' : '' }}"
+       href="{{ route('bendahara.notifikasi-rate.index') }}" title="Notifikasi Rate">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+        <path d="M13.73 21a2 2 0 01-3.46 0"/>
+      </svg>
+      <span class="nav-item-label">Notifikasi Rate</span>
+    </a>
+    @endif
+
     <div class="nav-label">Utama</div>
 
-    <a class="nav-item active" data-view="dashboard" title="Dashboard" onclick="switchView('dashboard',this)">
+    <a class="nav-item {{ request()->is('/') && ! request()->routeIs('bendahara.*') ? 'active' : '' }}"
+       data-view="dashboard" title="Dashboard" onclick="switchView('dashboard',this)">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
       <span class="nav-item-label">Dashboard</span>
     </a>
@@ -134,6 +160,16 @@
     <a class="nav-item" data-view="version" title="Version Control" onclick="switchView('version',this)">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/><path d="M15.54 8.46a5 5 0 010 7.07M8.46 8.46a5 5 0 000 7.07"/></svg>
       <span class="nav-item-label">Version Control</span>
+    </a>
+    <a class="nav-item {{ request()->routeIs('admin.audit-log') ? 'active' : '' }}"
+       href="{{ route('admin.audit-log') }}" title="Audit Log">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
+        <rect x="9" y="3" width="6" height="4" rx="1"/>
+        <line x1="9" y1="12" x2="15" y2="12"/>
+        <line x1="9" y1="16" x2="13" y2="16"/>
+      </svg>
+      <span class="nav-item-label">Audit Log</span>
     </a>
     @endif
 

@@ -109,6 +109,7 @@ class BankController extends Controller
             'notes'  => $b->notes ?? '',
         ])->toArray();
 
+        \App\Models\ExportLog::record('banks_excel', [], $banks->count());
         return ExcelHelper::download(
             filename:   'master_bank',
             columns:    $columns,

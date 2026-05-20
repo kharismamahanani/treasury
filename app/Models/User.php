@@ -12,11 +12,11 @@ class User extends Authenticatable
     use HasApiTokens, HasFactory, Notifiable;
 
     protected $fillable = [
-        'name', 'username', 'email', 'password', 'role', 'is_active',
+        'name', 'username', 'email', 'password', 'role', 'is_active', 'google2fa_secret',
     ];
 
     protected $hidden = [
-        'password', 'remember_token',
+        'password', 'remember_token', 'google2fa_secret',
     ];
 
     protected $casts = [

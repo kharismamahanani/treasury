@@ -9,6 +9,7 @@ use App\Models\Bank;
 use App\Models\BalanceHistory;
 use App\Models\YieldClaim;
 use App\Models\SkAlokasi;
+use App\Models\ExportLog;
 use App\Services\ExcelHelper;
 
 /**
@@ -44,7 +45,7 @@ class LaporanController extends Controller
         // Kelompokkan per kategori sesuai urutan UM
         $grouped  = $this->groupByKategori($products);
 
-        // Build Excel dengan format UM
+        ExportLog::record('products_excel', $request->only('tanggal','currency','kategori'), $products->count());
         return $this->buildLaporanExcel($grouped, $tanggal, $currency, $request);
     }
 
@@ -93,6 +94,7 @@ class LaporanController extends Controller
         $products = $this->getProductsWithSaldo($tanggal, $currency, $kategori);
         $grouped  = $this->groupByKategori($products);
 
+        ExportLog::record('products_pdf', $request->only('tanggal','currency','kategori'), $products->count());
         return view('laporan.produk-pdf', [
             'grouped'     => $grouped,
             'tanggal'     => $tanggal ?? now()->toDateString(),
@@ -198,6 +200,7 @@ class LaporanController extends Controller
                 : '-',
         ])->toArray();
 
+        ExportLog::record('imbal_hasil_excel', $request->only('dari','sampai','currency','type'), count($rows));
         return ExcelHelper::download(
             filename:   'laporan_imbal_hasil',
             columns:    $columns,
@@ -258,6 +261,7 @@ class LaporanController extends Controller
             'instruksi'     => $p->rollover_instruction ?? '-',
         ])->toArray();
 
+        ExportLog::record('jatuh_tempo_excel', $request->only('dari','sampai'), count($rows));
         return ExcelHelper::download(
             filename:   'laporan_jatuh_tempo',
             columns:    $columns,
@@ -332,6 +336,7 @@ class LaporanController extends Controller
             'lunas_amt'    => $c->settled_amount ? (float) $c->settled_amount : '',
         ])->toArray();
 
+        ExportLog::record('penagihan_excel', $request->only('dari','sampai','status','bank_id'), count($rows));
         return ExcelHelper::download(
             filename:   'laporan_penagihan_imbal_hasil',
             columns:    $columns,
@@ -395,6 +400,7 @@ class LaporanController extends Controller
             'oleh'     => $h->recorder?->name ?? 'system',
         ])->toArray();
 
+        ExportLog::record('histori_saldo_excel', $request->only('dari','sampai','currency','product_id'), count($rows));
         return ExcelHelper::download(
             filename:   'histori_saldo',
             columns:    $columns,

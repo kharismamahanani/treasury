@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php artisan *)",
+      "Bash(php -l app/Http/Controllers/BendaharaAgendaController.php)",
+      "Bash(php -l database/migrations/2024_01_10_000001_add_agenda_fields.php)",
+      "Bash(php -l app/Http/Controllers/RateNotificationController.php)",
+      "Bash(php -l app/Models/RateNotification.php)",
+      "Bash(php -l database/migrations/2024_01_11_000001_create_rate_notifications_table.php)",
+      "Bash(php -l database/migrations/2024_01_12_000002_add_nomor_bilyet_to_products.php app/Models/Product.php app/Models/BalanceHistory.php app/Models/YieldClaim.php app/Models/RateNotification.php)",
+      "Bash(composer show *)",
+      "Bash(composer require *)",
+      "Bash(php -r \"echo class_exists\\('PragmaRX\\\\Google2FA\\\\Google2FA'\\) ? 'OK' : 'NO';\")",
+      "Bash(php -l app/Http/Middleware/Require2FA.php app/Http/Controllers/TwoFactorController.php app/Http/Controllers/AuditLogController.php app/Models/ExportLog.php app/Models/User.php app/Http/Kernel.php)",
+      "Bash(php -l app/Http/Controllers/LaporanController.php app/Http/Controllers/YieldClaimController.php app/Http/Controllers/InterestScheduleController.php app/Http/Controllers/RecommendationController.php app/Http/Controllers/SkAlokasiController.php app/Http/Controllers/UserController.php)"
+    ]
+  }
+}

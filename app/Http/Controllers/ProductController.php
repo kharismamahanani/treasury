@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use App\Models\Product;
 use App\Models\Bank;
 use App\Models\BalanceHistory;
@@ -46,6 +47,11 @@ class ProductController extends Controller
             'bank_id'              => 'required|exists:banks,id',
             'type'                 => 'required|in:kas,deposito,giro,tabungan',
             'account_number'       => 'nullable|string|max:50',
+            'nomor_bilyet'         => [
+                'nullable', 'string', 'max:50',
+                Rule::unique('products', 'nomor_bilyet')
+                    ->where(fn($q) => $q->where('bank_id', $request->bank_id)->whereNull('deleted_at')),
+            ],
             'nama_rekening'        => 'nullable|string|max:100',
             'kategori_rekening'    => 'nullable|in:penerimaan,rpk_deposito,rpk_giro_tabungan,dana_kelolaan,dana_abadi_giro,dana_abadi_deposito',
             'currency'             => 'required|in:IDR,USD',
@@ -54,7 +60,10 @@ class ProductController extends Controller
             'tenor_days'           => 'nullable|integer|min:1',
             'placement_date'       => 'nullable|date',
             'maturity_date'        => 'nullable|date|after_or_equal:placement_date',
-            'rollover_instruction' => 'nullable|in:ARO,non-ARO,pencairan',
+            'rollover_instruction' => [
+                Rule::requiredIf(fn() => $request->type === 'deposito'),
+                'nullable', 'in:ARO,non-ARO,pencairan',
+            ],
             'notes'                => 'nullable|string',
         ]);
 
@@ -75,6 +84,12 @@ class ProductController extends Controller
             'bank_id'              => 'required|exists:banks,id',
             'type'                 => 'required|in:kas,deposito,giro,tabungan',
             'account_number'       => 'nullable|string|max:50',
+            'nomor_bilyet'         => [
+                'nullable', 'string', 'max:50',
+                Rule::unique('products', 'nomor_bilyet')
+                    ->where(fn($q) => $q->where('bank_id', $request->bank_id)->whereNull('deleted_at'))
+                    ->ignore($product->id),
+            ],
             'nama_rekening'        => 'nullable|string|max:100',
             'kategori_rekening'    => 'nullable|in:penerimaan,rpk_deposito,rpk_giro_tabungan,dana_kelolaan,dana_abadi_giro,dana_abadi_deposito',
             'currency'             => 'required|in:IDR,USD',
@@ -83,7 +98,10 @@ class ProductController extends Controller
             'tenor_days'           => 'nullable|integer|min:1',
             'placement_date'       => 'nullable|date',
             'maturity_date'        => 'nullable|date',
-            'rollover_instruction' => 'nullable|in:ARO,non-ARO,pencairan',
+            'rollover_instruction' => [
+                Rule::requiredIf(fn() => $request->type === 'deposito'),
+                'nullable', 'in:ARO,non-ARO,pencairan',
+            ],
             'notes'                => 'nullable|string',
         ]);
 
@@ -306,6 +324,7 @@ class ProductController extends Controller
             'maturity_date'  => $p->maturity_date?->format('Y-m-d') ?? '',
         ])->toArray();
 
+        \App\Models\ExportLog::record('products_export_excel', $request->only('currency','type'), count($rows));
         return \App\Services\ExcelHelper::download(
             filename:   'daftar_produk',
             columns:    $columns,

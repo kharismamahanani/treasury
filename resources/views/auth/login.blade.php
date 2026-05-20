@@ -112,7 +112,12 @@ body{min-height:100vh;background:var(--navy);font-family:'Aptos','DM Sans',-appl
   <div class="login-title">Selamat Datang</div>
   <div class="login-sub">Masuk ke SmartKas dengan akun Anda</div>
 
-  @if($errors->any())
+  @if(session('session_expired'))
+  <div class="error-box" style="background:rgba(240,168,72,.1);border-color:rgba(240,168,72,.3);color:var(--warn)">
+    <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    Sesi Anda telah berakhir karena tidak aktif. Silakan masuk kembali.
+  </div>
+  @elseif($errors->any())
   <div class="error-box">
     <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
     {{ $errors->first() }}

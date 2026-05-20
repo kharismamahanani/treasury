@@ -5,14 +5,19 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Traits\Auditable;
 use Carbon\Carbon;
 
 class Product extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, Auditable;
+
+    public static array $auditableFields = [
+        'balance', 'yield_rate_offered', 'maturity_date', 'rollover_instruction',
+    ];
 
     protected $fillable = [
-        'bank_id', 'type', 'account_number', 'nama_rekening', 'kategori_rekening', 'currency', 'balance',
+        'bank_id', 'type', 'account_number', 'nomor_bilyet', 'nama_rekening', 'kategori_rekening', 'currency', 'balance',
         'saldo_awal_bulan', 'bunga_aktual_nominal',
         'yield_rate', 'yield_rate_offered', 'yield_rate_actual',
         'yield_threshold_nominal', 'yield_threshold_bps',

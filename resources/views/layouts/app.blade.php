@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{{ asset('css/theme.css') }}">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
 <style>
 /* ===== RESET & CSS VARS ===== */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -335,7 +336,67 @@ tr:hover td     { background: rgba(255,255,255,.02); }
 
 <div id="toast"></div>
 
+{{-- ── Session timeout warning banner ──────────────────────────────────────── --}}
+<div id="sessionWarningBanner" style="display:none;position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+     z-index:9999;background:var(--navy-mid);border:1px solid rgba(240,168,72,.5);border-radius:10px;
+     padding:12px 20px;display:none;align-items:center;gap:16px;min-width:340px;
+     box-shadow:0 4px 24px rgba(0,0,0,.4)">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="2" style="flex-shrink:0">
+    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r="1" fill="var(--warn)"/>
+  </svg>
+  <div style="flex:1;font-size:13px;color:var(--cream)">
+    Sesi berakhir dalam <strong id="sessionCountdown" style="color:var(--warn)">5 menit</strong>
+    — gerakkan mouse atau tekan tombol untuk memperbarui.
+  </div>
+  <button onclick="dismissSessionWarning()" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:18px;line-height:1;padding:0 4px">&times;</button>
+</div>
+
+{{-- ── 2FA setup reminder (admin only, dismissible per session) ────────────── --}}
+@auth
+@if(auth()->user()->isAdmin() && ! auth()->user()->google2fa_secret)
+<div id="twoFaBanner" style="position:fixed;top:0;left:0;right:0;z-index:8000;
+     background:linear-gradient(90deg,rgba(224,85,85,.15),rgba(224,85,85,.08));
+     border-bottom:1px solid rgba(224,85,85,.35);padding:10px 24px;
+     display:flex;align-items:center;gap:16px">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" style="flex-shrink:0">
+    <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+    <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+  </svg>
+  <div style="flex:1;font-size:13px;color:var(--cream)">
+    Akun admin Anda belum mengaktifkan <strong>Two-Factor Authentication</strong>.
+    2FA wajib — akses akan diblokir setelah sesi ini berakhir.
+  </div>
+  <a href="{{ route('admin.2fa.setup') }}" class="btn btn-primary" style="font-size:12px;padding:5px 14px;flex-shrink:0">
+    Setup Sekarang
+  </a>
+  <button onclick="this.closest('#twoFaBanner').style.display='none';sessionStorage.setItem('2fa_banner_dismissed','1')"
+          style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:18px;line-height:1;padding:0 4px">&times;</button>
+</div>
+<script>
+  if (sessionStorage.getItem('2fa_banner_dismissed')) {
+    document.getElementById('twoFaBanner').style.display = 'none';
+  }
+</script>
+@endif
+@endauth
+
 @include('partials.modals')
+
+{{-- Fallback functions untuk halaman non-SPA (agenda, audit-log, 2fa, dll).
+     treasury.js mengoverride semua ini dengan implementasi penuh saat di dashboard. --}}
+<script>
+window.switchView = window.switchView || function(view) {
+  window.location.href = '/?v=' + encodeURIComponent(view);
+};
+window.toggleSidebar = window.toggleSidebar || function() {
+  document.getElementById('sidebar')?.classList.toggle('collapsed');
+};
+window.closeMobileSidebar = window.closeMobileSidebar || function() {
+  document.getElementById('sidebar')?.classList.remove('mobile-open');
+  document.getElementById('sidebarOverlay')?.classList.remove('active');
+};
+window.toggleDepositoFields = window.toggleDepositoFields || function() {};
+</script>
 
 @yield('scripts')
 
@@ -399,6 +460,60 @@ function urgencyBadge(days) {
   if (days <= 30) return `<span class="badge bd-warn">${days}h lagi</span>`;
   return `<span class="badge bd-safe">${days}h lagi</span>`;
 }
+
+
+// ── Session timeout ───────────────────────────────────────────────────────────
+(function () {
+  const TIMEOUT_MS  = {{ config('session.lifetime') * 60 * 1000 }};
+  const WARNING_MS  = 5 * 60 * 1000;   // warn at 5 minutes remaining
+  const EXPIRED_URL = '/session-expired';
+
+  let lastActivity = Date.now();
+  let warningShown = false;
+
+  // Reset timer on any user activity
+  ['mousemove', 'keydown', 'click', 'touchstart'].forEach(evt => {
+    document.addEventListener(evt, () => {
+      lastActivity = Date.now();
+      if (warningShown) hideSessionWarning();
+    }, { passive: true });
+  });
+
+  function hideSessionWarning() {
+    const el = document.getElementById('sessionWarningBanner');
+    if (el) el.style.display = 'none';
+    warningShown = false;
+  }
+
+  window.dismissSessionWarning = function() {
+    hideSessionWarning();
+    lastActivity = Date.now(); // treat dismiss as activity
+  };
+
+  setInterval(() => {
+    const idle = Date.now() - lastActivity;
+    const remaining = TIMEOUT_MS - idle;
+
+    if (remaining <= 0) {
+      window.location.href = EXPIRED_URL;
+      return;
+    }
+
+    const warnEl = document.getElementById('sessionWarningBanner');
+    if (remaining <= WARNING_MS) {
+      const mins = Math.ceil(remaining / 60000);
+      if (warnEl) {
+        warnEl.style.display = 'flex';
+        const countEl = warnEl.querySelector('#sessionCountdown');
+        if (countEl) countEl.textContent = mins + ' menit';
+        warningShown = true;
+      }
+    } else {
+      if (warnEl) warnEl.style.display = 'none';
+      warningShown = false;
+    }
+  }, 15000); // check every 15 seconds
+})();
 
 // ── Currency toggle state ─────────────────────────────────────────────────────
 let activeCurrency = 'IDR';
